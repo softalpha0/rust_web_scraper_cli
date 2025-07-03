@@ -1,5 +1,5 @@
 # Stage 1: Build the Rust binary
-FROM rust:1.72 AS builder
+FROM rust:1.76 AS builder
 
 WORKDIR /app
 
@@ -16,5 +16,6 @@ FROM debian:bullseye-slim
 # Copy binary from builder
 COPY --from=builder /app/target/release/bot_main /usr/local/bin/bot_main
 
-# Set the entrypoint (add a default URL)
-ENTRYPOINT ["bot_main", "https://news.ycombinator.com"]
+# Set the binary as entrypoint and provide default arg
+ENTRYPOINT ["/usr/local/bin/bot_main"]
+CMD ["https://news.ycombinator.com"]
