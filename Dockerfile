@@ -1,24 +1,19 @@
-# Use the official Rust image
-FROM rust:1.72
+# --- Stage 1: Build the Rust binary ---
+FROM rust:1.72 as builder
 
-# Set the working directory
 WORKDIR /app
-
-# Copy the manifest and lock files first
 COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY bot.rs .  # if you use it
+COPY lib.rs ./lib.rs  # if you use it
 
-# Create an empty src dir and copy bin target to avoid cache busting
-RUN mkdir src
-COPY src/bot_main.rs src/
-
-# Build the binary (caches this layer if code hasn't changed)
 RUN cargo build --release --bin bot_main
 
-# Copy the actual full source
-COPY . .
+# --- Stage 2: Run the compiled binary ---
+FROM debian:buster-slim
 
-# Rebuild to make sure all source is included
-RUN cargo build --release --bin bot_main
+# Copy the compiled binary from the builder stage
+COPY --from=builder /app/target/release/bot_main /usr/local/bin/bot_main
 
-# Set the binary as the entrypoint (pass default URL here if desired)
-CMD ["./target/release/bot_main", "https://news.ycombinator.com"]
+# Set the entrypoint with default argument
+CMD ["bot_main", "https://news.ycombinator.com"]
