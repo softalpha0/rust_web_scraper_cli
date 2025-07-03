@@ -1,24 +1,16 @@
-# Stage 1: Build the Rust binary
-FROM rust:slim AS builder
+# Use Rust image as build AND runtime (no glibc issues)
+FROM rust:1.77
 
+# Set working directory
 WORKDIR /app
 
-# Copy manifests and lockfile
+# Copy manifests and source
 COPY Cargo.toml Cargo.lock ./
-COPY src ./src
+COPY ./src ./src
 
-# Build the release binary
+# Build the binary
 RUN cargo build --release --bin bot_main
 
-# Stage 2: Create minimal runtime image
-FROM debian:bullseye-slim
-
-# Install needed system dependencies (if any)
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
-
-# Copy the binary from the build stage
-COPY --from=builder /app/target/release/bot_main /usr/local/bin/bot_main
-
-# Set binary as entrypoint and give default URL as argument
-ENTRYPOINT ["/usr/local/bin/bot_main"]
+# Set entrypoint
+ENTRYPOINT ["./target/release/bot_main"]
 CMD ["https://news.ycombinator.com"]
