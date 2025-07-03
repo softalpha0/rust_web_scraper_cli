@@ -1,5 +1,5 @@
 # Use Rust image as build AND runtime (no glibc issues)
-FROM rust:1.77
+FROM rust:1.78
 
 # Set working directory
 WORKDIR /app
