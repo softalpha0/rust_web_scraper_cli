@@ -1,5 +1,5 @@
 # Stage 1: Build the Rust binary
-FROM rust:1.76 AS builder
+FROM rust:1.77 AS builder
 
 WORKDIR /app
 
