@@ -1,9 +1,6 @@
-use chrono::Utc;
-use futures::future::join_all;
 use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::Serialize;
-use std::{error::Error, fs::File, io::Write, path::PathBuf};
 
 #[derive(Debug, Serialize)]
 pub struct ScrapedItem {
