@@ -52,7 +52,7 @@ impl EventHandler for Handler {
                     // Simple URL and client
                     let url = "https://news.ycombinator.com";
                     let client = reqwest::Client::new();
-                    let items = scrape_url(&client, url).await;
+                    let items = scrape_url(&client, url.to_string()).await;
 
                     let response = format!(
                         "Scraped {} items from {}",
