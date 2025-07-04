@@ -1,0 +1,19 @@
+# Ignore version control
+.git
+.gitignore
+
+# Ignore build artifacts
+target
+**/target
+
+# Ignore environment secrets
+.env
+
+# Ignore system files
+.DS_Store
+*.swp
+
+# Ignore IDE/editor settings
+*.vscode
+*.idea
+*.iml
