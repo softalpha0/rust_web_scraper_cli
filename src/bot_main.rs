@@ -1,7 +1,6 @@
-// src/bot_main.rs
-
 use std::env;
 use tokio::time::{sleep, Duration};
+
 use serenity::{
     async_trait,
     model::{gateway::Ready, id::ChannelId},
@@ -9,7 +8,7 @@ use serenity::{
 };
 
 mod token_scanner;
-use crate::token_scanner::{scrape_dexscreener, scrape_pump_fun, test_me};
+use token_scanner::{scrape_dexscreener, scrape_pump_fun, test_me};
 
 struct Handler;
 
@@ -18,7 +17,6 @@ impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, _ready: Ready) {
         println!("✅ Bot is connected.");
 
-        // Get channel ID from .env
         let channel_id = ChannelId(
             env::var("DISCORD_CHANNEL_ID")
                 .expect("❌ Missing DISCORD_CHANNEL_ID")
@@ -26,13 +24,13 @@ impl EventHandler for Handler {
                 .unwrap(),
         );
 
-        // ✅ Optional sanity check
+        // Optional: Confirm the module is loaded
         test_me();
 
         // Start background scraping loop
         tokio::spawn(async move {
             loop {
-                // 🔄 Pump.fun scraping
+                // Scrape Pump.fun
                 if let Ok(tokens) = scrape_pump_fun().await {
                     for token in tokens.iter().take(5) {
                         let _ = channel_id
@@ -41,7 +39,7 @@ impl EventHandler for Handler {
                     }
                 }
 
-                // 🔄 Dexscreener scraping
+                // Scrape Dexscreener
                 if let Ok(tokens) = scrape_dexscreener().await {
                     for token in tokens.iter().take(5) {
                         let _ = channel_id
@@ -50,14 +48,14 @@ impl EventHandler for Handler {
                     }
                 }
 
-                sleep(Duration::from_secs(300)).await; // wait 5 mins
+                sleep(Duration::from_secs(300)).await; // Wait 5 minutes
             }
         });
     }
 }
 
-#[tokio::main]
-pub async fn main() {
+// ✅ Main entry point that Tokio can block on
+async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv::dotenv().ok();
 
     let token = env::var("DISCORD_TOKEN").expect("Missing DISCORD_TOKEN");
@@ -69,16 +67,16 @@ pub async fn main() {
         .expect("Failed to create client");
 
     if let Err(why) = client.start().await {
-        println!("Client error: {:?}", why);
+        println!("❌ Client error: {:?}", why);
     }
 
-pub fn main() {
-    tokio::runtime::Runtime::new().unwrap().block_on(async_main());
+    Ok(())
 }
 
-#[tokio::main]
-async fn async_main() {
-    dotenv::dotenv().ok();
-    // ... rest of the async code
-}
+// ✅ Compatible sync `main` function for binary crate
+fn main() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    if let Err(err) = rt.block_on(async_main()) {
+        eprintln!("❌ Bot failed: {:?}", err);
+    }
 }
