@@ -1,98 +1,86 @@
 use serenity::{
     async_trait,
-    model::{gateway::Ready, application::interaction::{Interaction, InteractionResponseType}, application::command::Command},
+    model::{
+        gateway::Ready,
+        id::ChannelId,
+        application::{command::Command, interaction::{Interaction, InteractionResponseType}},
+    },
     prelude::*,
-    builder::CreateApplicationCommand,
-    http::Http,
 };
-
-use std::env;
 use dotenv::dotenv;
-
-mod scraper;
-use scraper::{scrape_url, OutputFormat};
-
-struct Handler;
+use std::env;
+use tokio::time::{interval, Duration};
+use crate::scraper::scrape_tokens;
+pub struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
 
-        let global_commands = Command::set_global_application_commands(&ctx.http, |commands| {
+        // Register global slash commands
+        let _ = Command::set_global_application_commands(&ctx.http, |commands| {
             commands
-                .create_application_command(|command| {
-                    command.name("ping").description("Test if the bot is responsive.")
+                .create_application_command(|cmd| {
+                    cmd.name("ping").description("Check if bot is alive")
                 })
-                .create_application_command(|command| {
-                    command.name("scrape")
-                        .description("Run the scraper and return result.")
+                .create_application_command(|cmd| {
+                    cmd.name("scan").description("Manually scan for new tokens")
                 })
-        })
-        .await;
+        }).await;
 
-        if let Err(why) = global_commands {
-            println!("Error setting global slash commands: {:?}", why);
-        }
+        // Start periodic scanner
+        let ctx_clone = ctx.clone();
+        tokio::spawn(async move {
+            let mut interval = interval(Duration::from_secs(300)); // 5 min
+            loop {
+                interval.tick().await;
+                if let Ok(alerts) = try_get_token_alerts().await {
+                    for alert in alerts {
+                        let _ = ChannelId(1390860816584020070).say(&ctx_clone.http, alert).await;
+                    }
+                }
+            }
+        });
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::ApplicationCommand(command) = interaction {
-            match command.data.name.as_str() {
+        if let Interaction::ApplicationCommand(cmd) = interaction {
+            let name = cmd.data.name.as_str();
+            match name {
                 "ping" => {
-                    if let Err(why) = command.create_interaction_response(&ctx.http, |resp| {
-                        resp.kind(InteractionResponseType::ChannelMessageWithSource)
-                            .interaction_response_data(|msg| msg.content("Pong!"))
-                    }).await {
-                        println!("Failed to respond to ping: {:?}", why);
+                    let _ = cmd.create_interaction_response(&ctx.http, |r| {
+                        r.kind(InteractionResponseType::ChannelMessageWithSource)
+                            .interaction_response_data(|m| m.content("Pong!"))
+                    }).await;
+                },
+                "scan" => {
+                    match try_get_token_alerts().await {
+                        Ok(alerts) if !alerts.is_empty() => {
+                            for alert in alerts {
+                                let _ = cmd.create_interaction_response(&ctx.http, |r| {
+                                    r.kind(InteractionResponseType::ChannelMessageWithSource)
+                                        .interaction_response_data(|m| m.content(alert))
+                                }).await;
+                            }
+                        },
+                        _ => {
+                            let _ = cmd.create_interaction_response(&ctx.http, |r| {
+                                r.kind(InteractionResponseType::ChannelMessageWithSource)
+                                    .interaction_response_data(|m| m.content("No promising tokens found."))
+                            }).await;
+                        }
                     }
-                }
-
-                "scrape" => {
-                    // Simple URL and client
-                    let url = "https://news.ycombinator.com";
-                    let client = reqwest::Client::new();
-                    let items = scrape_url(&client, url.to_string()).await;
-
-                    let response = format!(
-                        "Scraped {} items from {}",
-                        items.len(),
-                        url
-                    );
-
-                    if let Err(why) = command.create_interaction_response(&ctx.http, |resp| {
-                        resp.kind(InteractionResponseType::ChannelMessageWithSource)
-                            .interaction_response_data(|msg| msg.content(response))
-                    }).await {
-                        println!("Failed to respond to scrape: {:?}", why);
-                    }
-                }
-
+                },
                 _ => {}
             }
         }
     }
 }
 
-#[tokio::main]
-async fn main() {
-    dotenv().ok();
-
-    let token = env::var("DISCORD_TOKEN").expect("Expected DISCORD_TOKEN in .env");
-    let application_id: u64 = env::var("APPLICATION_ID")
-        .expect("Expected APPLICATION_ID in .env")
-        .parse()
-        .expect("APPLICATION_ID must be a u64");
-
-    let intents = GatewayIntents::GUILD_MESSAGES | GatewayIntents::MESSAGE_CONTENT;
-
-    let mut client = Client::builder(&token, intents)
-        .event_handler(Handler)
-        .application_id(application_id)
-        .await
-        .expect("Error creating client");
-
-    if let Err(why) = client.start().await {
-        println!("Client error: {:?}", why);
-    }
+async fn try_get_token_alerts() -> Result<Vec<String>, ()> {
+    let tokens = scrape_tokens().await;
+    Ok(tokens.into_iter().map(|t| {
+        format!("🟢 **{}** found on **{}**\nHolders: {}\nVolume: {} SOL\nLP: {} SOL", t.name, t.source, t.holders, t.volume, t.lp)
+    }).collect())
 }
