@@ -1,5 +1,5 @@
 mod bot_main;
-mod scraper;
+mod token_scanner;
 
 use bot_main::Handler;
 use serenity::prelude::*;
