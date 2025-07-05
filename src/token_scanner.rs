@@ -1,38 +1,43 @@
 use reqwest::Client;
 use scraper::{Html, Selector};
-use std::error::Error;
 
-pub async fn scrape_pump_fun() -> Result<Vec<String>, Box<dyn Error>> {
-    let url = "https://pump.fun/";
-    let html = Client::new().get(url).send().await?.text().await?;
-    let document = Html::parse_document(&html);
-    let selector = Selector::parse("a[href]").unwrap();
+pub async fn scrape_pump_fun() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let client = Client::new();
+    let body = client
+        .get("https://pump.fun/")
+        .send()
+        .await?
+        .text()
+        .await?;
 
-    let mut tokens = Vec::new();
-    for element in document.select(&selector) {
-        if let Some(href) = element.value().attr("href") {
-            if href.contains("/token/") {
-                tokens.push(href.to_string());
-            }
-        }
-    }
+    let document = Html::parse_document(&body);
+    let selector = Selector::parse("a[href^='/token/']").unwrap();
+
+    let tokens: Vec<String> = document
+        .select(&selector)
+        .filter_map(|elem| elem.value().attr("href"))
+        .map(|href| format!("https://pump.fun{}", href))
+        .collect();
 
     Ok(tokens)
 }
 
-pub async fn scrape_dexscreener() -> Result<Vec<String>, Box<dyn Error>> {
-    let url = "https://api.dexscreener.com/latest/dex/pairs/solana";
-    let json = Client::new().get(url).send().await?.text().await?;
-    let parsed: serde_json::Value = serde_json::from_str(&json)?;
+pub async fn scrape_dexscreener() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let client = Client::new();
+    let response = client
+        .get("https://api.dexscreener.com/latest/dex/pairs/solana")
+        .send()
+        .await?
+        .json::<serde_json::Value>()
+        .await?;
 
-    let mut tokens = Vec::new();
-    if let Some(pairs) = parsed.get("pairs").and_then(|p| p.as_array()) {
-        for pair in pairs.iter().take(10) {
-            if let Some(name) = pair.get("baseToken").and_then(|b| b.get("name")) {
-                tokens.push(name.to_string());
-            }
-        }
-    }
+    let tokens: Vec<String> = response["pairs"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .take(5)
+        .filter_map(|pair| pair["url"].as_str().map(|s| s.to_string()))
+        .collect();
 
     Ok(tokens)
 }
