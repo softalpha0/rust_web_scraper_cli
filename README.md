@@ -24,3 +24,33 @@ A powerful CLI tool to scrape webpages and export links, metadata, and more — 
 ```bash
 cargo run -- https://example.com https://another-site.com \
   --output links.csv --csv
+  # 🕵️‍♂️ web_scraper_cli
+
+  ## 🧠 Token Scanning Discord Bot (Rust)
+
+  A Rust-powered Discord bot that scrapes token listings from:
+
+  - [Pump.fun](https://pump.fun)
+  - [Dexscreener](https://dexscreener.com)
+
+  And sends live alerts every 5 minutes to a Discord channel.
+
+  ---
+
+  ## ✨ Features
+
+  - Scrapes newly launched tokens
+  - Sends alerts to Discord with basic info
+  - Modular scraping logic via `token_scanner.rs`
+  - Built with `serenity`, `tokio`, and `scraper`
+  - Easily deployable with Docker
+
+  ---
+
+  ## 🛠️ Setup
+
+  ### 1. Clone and setup
+
+  ```bash
+  git clone https://github.com/softalpha0/rust_web_scraper_cli.git
+  cd rust_web_scraper_cli
